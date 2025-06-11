@@ -12,6 +12,114 @@ type Point = {
 	y: number;
 };
 
+export const fileToImageData = async (
+	file: File,
+	scaleType: "display" | "upload" | "original" = "upload",
+): Promise<ImageData> => {
+	const UPLOAD_IMAGE_SIZE = 480;
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		const canvas = document.createElement("canvas");
+		const ctx = canvas.getContext("2d");
+
+		if (!ctx) {
+			reject(new Error("Could not get canvas context"));
+			return;
+		}
+
+		img.onload = () => {
+			const width = img.naturalWidth;
+			const height = img.naturalHeight;
+
+			let scale = 1;
+			let uploadScale = 1;
+
+			// Calculate scales using the same logic as imageToBlob
+			if (height < width) {
+				scale = IMAGE_SIZE / height;
+				uploadScale = UPLOAD_IMAGE_SIZE / width;
+			} else {
+				scale = IMAGE_SIZE / width;
+				uploadScale = UPLOAD_IMAGE_SIZE / height;
+			}
+
+			let canvasWidth: number;
+			let canvasHeight: number;
+
+			switch (scaleType) {
+				case "display":
+					canvasWidth = Math.round(width * scale);
+					canvasHeight = Math.round(height * scale);
+					break;
+				case "upload":
+					canvasWidth = Math.round(width * uploadScale);
+					canvasHeight = Math.round(height * uploadScale);
+					break;
+				default: // 'original'
+					canvasWidth = width;
+					canvasHeight = height;
+					break;
+			}
+
+			canvas.width = canvasWidth;
+			canvas.height = canvasHeight;
+			ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+
+			try {
+				const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+
+				// Clean up object URL
+				URL.revokeObjectURL(img.src);
+				resolve(imageData);
+			} catch (error) {
+				URL.revokeObjectURL(img.src);
+				reject(error);
+			}
+		};
+
+		img.onerror = () => {
+			URL.revokeObjectURL(img.src);
+			reject(new Error("Failed to load image"));
+		};
+
+		img.src = URL.createObjectURL(file);
+	});
+};
+
+export const resizeCanvasToMaxSize = (
+	sourceCanvas: HTMLCanvasElement,
+	maxSize = 400,
+): HTMLCanvasElement => {
+	const originalWidth = sourceCanvas.width;
+	const originalHeight = sourceCanvas.height;
+
+	// Calculate scaling factor to fit within maxSize
+	let scaleFactor = 1;
+	if (originalWidth > maxSize || originalHeight > maxSize) {
+		scaleFactor = Math.min(maxSize / originalWidth, maxSize / originalHeight);
+	}
+
+	// If no scaling needed, return original canvas
+	if (scaleFactor >= 1) {
+		return sourceCanvas;
+	}
+
+	const scaledWidth = Math.round(originalWidth * scaleFactor);
+	const scaledHeight = Math.round(originalHeight * scaleFactor);
+
+	// Create new canvas with scaled dimensions
+	const scaledCanvas = document.createElement("canvas");
+	const scaledCtx = scaledCanvas.getContext("2d")!;
+
+	scaledCanvas.width = scaledWidth;
+	scaledCanvas.height = scaledHeight;
+
+	// Draw the original canvas scaled down
+	scaledCtx.drawImage(sourceCanvas, 0, 0, scaledWidth, scaledHeight);
+
+	return scaledCanvas;
+};
+
 export async function imageToBlob(image: File): Promise<{
 	blob: Blob;
 	scale: ModelScale;

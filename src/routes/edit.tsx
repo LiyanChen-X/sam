@@ -1,13 +1,17 @@
+import { EditSidebar } from "@/components/EditSidebar";
 import { useCanvasScale } from "@/hooks/use-canvas-scale";
 import {
 	cropImageByPath,
+	fileToImageData,
+	resizeCanvasToMaxSize,
 	rleToImage,
 	traceOnnxMaskToSVG,
 } from "@/lib/image-helper";
 import {
 	useClicks,
 	useModelScale,
-	useRunModel,
+	useRunLocalVisionInference,
+	useRunSamModel,
 	useSelectedImage,
 } from "@/store";
 import { ClickType } from "@/types/Click";
@@ -15,8 +19,8 @@ import type { Mask } from "@/types/Mask";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import { useCallback, useMemo, useState } from "react";
-import { Circle, Image, Layer, Path, Rect, Ring, Stage } from "react-konva";
+import { useMemo, useState } from "react";
+import { Layer, Stage } from "react-konva";
 import { useDebouncedCallback } from "use-debounce";
 
 export const Route = createFileRoute("/edit")({
@@ -46,21 +50,13 @@ function RouteComponent() {
 	const canvasWidth = Math.floor(width * canvasScale);
 	const canvasHeight = Math.floor(height * canvasScale);
 	const image = useSelectedImage();
-	const {
-		ref,
-		scalingStyle,
-		scaledDimensionsStyle,
-		scaledWidth,
-		scaledHeight,
-		containerWidth,
-		containerHeight,
-	} = useCanvasScale({
+	const { ref, scalingStyle, scaledDimensionsStyle } = useCanvasScale({
 		canvasHeight,
 		canvasWidth,
 	});
 
-	const { clicks, resetClick } = useClicks();
-	const { model, runModel } = useRunModel();
+	const [sticker, setSticker] = useState<HTMLCanvasElement>();
+	const { runModel } = useRunSamModel();
 	const [hoveringPrediction, setHoveringPrediction] =
 		useState<ModelPrediction>();
 	const [isHovering, setIsHovering] = useState(false);
@@ -98,7 +94,7 @@ function RouteComponent() {
 						clickType: ClickType.POSITIVE,
 					},
 				]);
-				const { data, dims } = results![model!.outputNames[0]];
+				const { data, dims } = results!;
 				setHoveringPrediction({
 					data,
 					dims,
@@ -118,33 +114,94 @@ function RouteComponent() {
 		setIsHovering(true);
 	};
 
-	const { url, img } = useMemo(() => {
+	const { fullImageUrl, fullImage } = useMemo(() => {
 		if (image) {
 			const url = URL.createObjectURL(image!);
 			const img = new window.Image();
 			img.src = url;
 			return {
-				url,
-				img,
+				fullImageUrl: url,
+				fullImage: img,
 			};
 		}
 		return {
-			url: null,
-			img: null,
+			fullImageUrl: null,
+			fullImage: null,
 		};
 	}, [image]);
 
-	const createSticker = () => {
-		if (!img || !hoveringSVG) {
+	const { runModel: runVisionInference } = useRunLocalVisionInference();
+
+	const createSticker = async () => {
+		if (!fullImage || !hoveringSVG) {
 			return;
 		}
-		const sticker = cropImageByPath(
-			img!,
-			hoveringSVG.join(" "),
-			width,
-			height,
-			uploadScale,
-		);
+
+		// Start total time measurement
+		const totalStartTime = performance.now();
+
+		try {
+			// Measure fileToImageData performance
+			const fileToImageDataStartTime = performance.now();
+			const contextImage = await fileToImageData(image!);
+			const fileToImageDataEndTime = performance.now();
+			const fileToImageDataTime =
+				fileToImageDataEndTime - fileToImageDataStartTime;
+
+			const sticker = cropImageByPath(
+				fullImage!,
+				hoveringSVG.join(" "),
+				width,
+				height,
+				uploadScale,
+			);
+
+			if (sticker) {
+				const resizedSticker = resizeCanvasToMaxSize(sticker, 400);
+
+				const stickerImageData = resizedSticker
+					.getContext("2d")!
+					.getImageData(0, 0, resizedSticker.width, resizedSticker.height);
+
+				// Measure runVisionInference performance
+				const runVisionInferenceStartTime = performance.now();
+				const result = await runVisionInference(contextImage, stickerImageData);
+				const runVisionInferenceEndTime = performance.now();
+				const runVisionInferenceTime =
+					runVisionInferenceEndTime - runVisionInferenceStartTime;
+
+				// Calculate total time
+				const totalEndTime = performance.now();
+				const totalTime = totalEndTime - totalStartTime;
+
+				// Log performance metrics
+				console.group("🚀 Vision Inference Performance Metrics");
+				console.log(
+					`📁 File to ImageData: ${fileToImageDataTime.toFixed(2)}ms`,
+				);
+				console.log(
+					`🧠 Vision Inference: ${runVisionInferenceTime.toFixed(2)}ms`,
+				);
+				console.log(`⏱️ Total Time: ${totalTime.toFixed(2)}ms`);
+				console.log(
+					`📐 Context Image Size: ${contextImage.width}x${contextImage.height}`,
+				);
+				console.log(
+					`✂️ Sticker Image Size: ${stickerImageData.width}x${stickerImageData.height}`,
+				);
+				console.log("📊 Result:", result);
+				console.groupEnd();
+			}
+
+			setSticker(sticker);
+		} catch (error) {
+			console.error("Error in createSticker:", error);
+
+			// Log error with timing
+			const totalEndTime = performance.now();
+			const totalTime = totalEndTime - totalStartTime;
+			console.log(`❌ Error occurred after ${totalTime.toFixed(2)}ms`);
+		}
 	};
 
 	if (!image) {
@@ -155,34 +212,44 @@ function RouteComponent() {
 	}
 
 	return (
-		<div className="h-screen w-screen flex items-center flex-col justify-center">
-			<div
-				id="container"
-				className="w-2/3 relative flex items-center justify-center"
-				ref={ref}
-			>
-				<div className="relative" style={scaledDimensionsStyle}>
-					<img src={url} className="size-full absolute pointer-events-none" />
-					<Stage
-						width={canvasWidth}
-						height={canvasHeight}
-						style={scalingStyle}
-						onMouseMove={onMouseMove}
-						onMouseOut={onMouseOut}
-						onMouseEnter={onMouseEnter}
-					>
-						<Layer name="annotations">
-							{/* render click annotations here*/}
-						</Layer>
-					</Stage>
-					{hoveringMask && (
+		<div className="h-screen w-screen flex items-center flex-row justify-center">
+			<div className="flex-1 h-full flex flex-col items-center py-12 justify-center bg-gray-100">
+				<div
+					id="container"
+					className="size-full relative flex items-center justify-center box-border"
+					ref={ref}
+				>
+					<div className="relative" style={scaledDimensionsStyle}>
 						<img
-							src={hoveringMask.src}
-							className="absolute top-0 opacity-40 pointer-events-none w-full h-full m-0"
+							src={fullImageUrl!}
+							className="size-full absolute pointer-events-none"
 						/>
-					)}
+						<Stage
+							width={canvasWidth}
+							height={canvasHeight}
+							style={scalingStyle}
+							onMouseMove={onMouseMove}
+							onMouseOut={onMouseOut}
+							onMouseEnter={onMouseEnter}
+							onClick={(e) => {
+								createSticker();
+							}}
+						>
+							<Layer name="annotations">
+								{/* render click annotations here*/}
+							</Layer>
+						</Stage>
+						{hoveringMask && (
+							<img
+								src={hoveringMask.src}
+								className="absolute top-0 opacity-40 pointer-events-none w-full h-full m-0"
+							/>
+						)}
+					</div>
 				</div>
 			</div>
+
+			<EditSidebar sticker={sticker} />
 		</div>
 	);
 }
