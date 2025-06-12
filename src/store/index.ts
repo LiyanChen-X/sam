@@ -1,5 +1,9 @@
 import api from "@/lib/ajax";
-import { imageToBlob, translateClickToTensors } from "@/lib/image-helper";
+import {
+	imageDataToBase64,
+	imageToBlob,
+	translateClickToTensors,
+} from "@/lib/image-helper";
 import type { Click } from "@/types/Click";
 import type { ModelScale } from "@/types/Scale";
 import {
@@ -13,7 +17,9 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { InferenceSession, Tensor, type TypedTensor } from "onnxruntime-web";
 import { useCallback, useEffect } from "react";
+import { useDebouncedCallback } from "use-debounce";
 import { create } from "zustand";
+import { generateObjectDescription } from "../prompts/index";
 
 env.useBrowserCache = true;
 
@@ -124,7 +130,95 @@ export const useInitSmolVLMModel = () => {
 	}, [setSmolVLMModel, setSmolVLMModelProcessor]);
 };
 
-export const useRunLocalVisionInference = () => {
+export const useRunLocalVisionInferenceFromServer = (options?: {
+	baseURL?: string;
+	maxTokens?: number;
+	temperature?: number;
+	timeout?: number;
+}) => {
+	const {
+		baseURL = "/api/vision",
+		maxTokens = 100,
+		temperature = 0.3,
+	} = options || {};
+
+	const runModel = useCallback(
+		async (contextImage: ImageData, selectedObjectImage: ImageData) => {
+			const contextImageBase64 = imageDataToBase64(contextImage);
+			const selectedObjectImageBase64 = imageDataToBase64(selectedObjectImage);
+
+			try {
+				const response = await fetch(`${baseURL}/v1/chat/completions`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						max_tokens: maxTokens,
+						temperature: temperature,
+						messages: [
+							{
+								role: "system",
+								content: generateObjectDescription,
+							},
+							{
+								role: "user",
+								content: [
+									{
+										type: "text",
+										text: "Context image:",
+									},
+									{
+										type: "image_url",
+										image_url: {
+											url: contextImageBase64,
+										},
+									},
+									{
+										type: "text",
+										text: "Selected object to describe:",
+									},
+									{
+										type: "image_url",
+										image_url: {
+											url: selectedObjectImageBase64,
+										},
+									},
+									{
+										type: "text",
+										text: "Product description:",
+									},
+								],
+							},
+						],
+					}),
+				});
+
+				if (!response.ok) {
+					const errorData = await response.text();
+					throw new Error(`Server error: ${response.status} - ${errorData}`);
+				}
+
+				const data = await response.json();
+				const result =
+					data.choices[0]?.message?.content || "No description generated";
+
+				return result;
+			} catch (error) {
+				throw new Error(
+					`Vision inference failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+				);
+			}
+		},
+		[baseURL, maxTokens, temperature],
+	);
+
+	return {
+		runModel,
+	};
+};
+
+export const useRunLocalVisionInferenceFromWebGPU = () => {
 	const model = useAppStore((state) => state.smolVLMModel);
 	const processor = useAppStore((state) => state.smolVLMModelProcessor);
 	const runModel = useCallback(
@@ -152,19 +246,7 @@ export const useRunLocalVisionInference = () => {
 					content: [
 						{
 							type: "text",
-							text: `You will be provided with two images:
-                                    1. A context image showing multiple objects
-                                    2. A selected object that was segmented from the context image
-
-                                    Your task is to generate a brief product description for the selected object. 
-                                                                        
-                                    Keep it under 30 words. Focus only on:
-                                    - Product name
-                                    - Color
-                                    - Material
-                                    - One key feature
-                                    
-                                    Do not include any explanations or additional text!`,
+							text: generateObjectDescription,
 						},
 					],
 				},
@@ -211,6 +293,14 @@ export const useRunLocalVisionInference = () => {
 	);
 	return {
 		runModel,
+	};
+};
+
+export const useRunLocalVisionInference = (useWebGPU = false) => {
+	const { runModel: runFromWebGPU } = useRunLocalVisionInferenceFromWebGPU();
+	const { runModel: runFromServer } = useRunLocalVisionInferenceFromServer();
+	return {
+		run: useWebGPU ? runFromWebGPU : runFromServer,
 	};
 };
 
@@ -329,5 +419,3 @@ export const useClicks = () => {
 		resetClick,
 	};
 };
-
-export const useHoverMask = () => {};

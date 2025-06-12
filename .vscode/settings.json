@@ -9,7 +9,7 @@
 		"**/routeTree.gen.ts": true
 	},
 	"[javascript]": {
-		"editor.defaultFormatter": "biomejs.biome"
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"[javascriptreact]": {
 		"editor.defaultFormatter": "biomejs.biome"

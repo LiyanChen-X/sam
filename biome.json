@@ -22,7 +22,7 @@
 		"rules": {
 			"recommended": true,
 			"style": {
-				"noNonNullAssertion": "warn"
+				"noNonNullAssertion": "off"
 			},
 			"a11y": {
 				"all": false

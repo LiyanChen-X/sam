@@ -86,9 +86,24 @@ export const fileToImageData = async (
 	});
 };
 
+export const imageDataToBase64 = (imageData: ImageData): string => {
+	const canvas = document.createElement("canvas");
+	const ctx = canvas.getContext("2d");
+
+	if (!ctx) {
+		throw new Error("Could not get canvas context");
+	}
+
+	canvas.width = imageData.width;
+	canvas.height = imageData.height;
+	ctx.putImageData(imageData, 0, 0);
+
+	return canvas.toDataURL("image/jpeg", 1);
+};
+
 export const resizeCanvasToMaxSize = (
 	sourceCanvas: HTMLCanvasElement,
-	maxSize = 400,
+	maxSize = 640,
 ): HTMLCanvasElement => {
 	const originalWidth = sourceCanvas.width;
 	const originalHeight = sourceCanvas.height;
