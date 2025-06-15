@@ -30,10 +30,10 @@ export default defineConfig({
     },
     proxy: {
       // Proxy API requests to your vision server
-      "/api/vision": {
-        target: "http://127.0.0.1:8080",
+      "/api/": {
+        target: "http://localhost:8000",
+        rewrite: (path) => path.replace(/^\/api/, ""),
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/vision/, ""),
         secure: false,
       },
     },

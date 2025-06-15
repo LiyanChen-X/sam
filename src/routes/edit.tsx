@@ -56,6 +56,7 @@ function RouteComponent() {
 	});
 
 	const [sticker, setSticker] = useState<HTMLCanvasElement>();
+	const [stickerDescription, setStickerDescription] = useState<string>();
 	const { runModel } = useRunSamModel();
 	const [hoveringPrediction, setHoveringPrediction] =
 		useState<ModelPrediction>();
@@ -171,6 +172,7 @@ function RouteComponent() {
 		}
 		try {
 			setSticker(hoveringSticker);
+			setStickerDescription(hoveringDescription);
 		} catch (error) {
 			console.error("Error in createSticker:", error);
 		}
@@ -274,7 +276,7 @@ function RouteComponent() {
 				</div>
 			</div>
 
-			<EditSidebar sticker={sticker} />
+			<EditSidebar sticker={sticker} description={stickerDescription} />
 		</div>
 	);
 }

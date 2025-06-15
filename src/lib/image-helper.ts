@@ -12,6 +12,21 @@ type Point = {
 	y: number;
 };
 
+export const imageDataToBase64 = (imageData: ImageData): string => {
+	const canvas = document.createElement("canvas");
+	const ctx = canvas.getContext("2d");
+
+	if (!ctx) {
+		throw new Error("Could not get canvas context");
+	}
+
+	canvas.width = imageData.width;
+	canvas.height = imageData.height;
+	ctx.putImageData(imageData, 0, 0);
+
+	return canvas.toDataURL("image/jpeg", 1);
+};
+
 export const fileToImageData = async (
 	file: File,
 	scaleType: "display" | "upload" | "original" = "upload",
@@ -84,21 +99,6 @@ export const fileToImageData = async (
 
 		img.src = URL.createObjectURL(file);
 	});
-};
-
-export const imageDataToBase64 = (imageData: ImageData): string => {
-	const canvas = document.createElement("canvas");
-	const ctx = canvas.getContext("2d");
-
-	if (!ctx) {
-		throw new Error("Could not get canvas context");
-	}
-
-	canvas.width = imageData.width;
-	canvas.height = imageData.height;
-	ctx.putImageData(imageData, 0, 0);
-
-	return canvas.toDataURL("image/jpeg", 1);
 };
 
 export const resizeCanvasToMaxSize = (

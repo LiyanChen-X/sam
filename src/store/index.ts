@@ -4,6 +4,7 @@ import {
 	imageToBlob,
 	translateClickToTensors,
 } from "@/lib/image-helper";
+import { getCachedTensorData, setCachedTensorData } from "@/lib/tensor-cache";
 import type { Click } from "@/types/Click";
 import type { ModelScale } from "@/types/Scale";
 import {
@@ -17,7 +18,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { InferenceSession, Tensor, type TypedTensor } from "onnxruntime-web";
 import { useCallback, useEffect } from "react";
-import { useDebouncedCallback } from "use-debounce";
 import { create } from "zustand";
 import { generateObjectDescription } from "../prompts/index";
 
@@ -130,87 +130,32 @@ export const useInitSmolVLMModel = () => {
 	}, [setSmolVLMModel, setSmolVLMModelProcessor]);
 };
 
-export const useRunLocalVisionInferenceFromServer = (options?: {
-	baseURL?: string;
-	maxTokens?: number;
-	temperature?: number;
-	timeout?: number;
-}) => {
-	const {
-		baseURL = "/api/vision",
-		maxTokens = 100,
-		temperature = 0.3,
-	} = options || {};
-
+export const useRunLocalVisionInferenceFromServer = () => {
 	const runModel = useCallback(
 		async (contextImage: ImageData, selectedObjectImage: ImageData) => {
 			const contextImageBase64 = imageDataToBase64(contextImage);
 			const selectedObjectImageBase64 = imageDataToBase64(selectedObjectImage);
-
+			const formData = new FormData();
+			formData.append("contextImage", contextImageBase64);
+			formData.append("croppedObject", selectedObjectImageBase64);
 			try {
-				const response = await fetch(`${baseURL}/v1/chat/completions`, {
+				const response = await fetch("/api/describe-image", {
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({
-						max_tokens: maxTokens,
-						temperature: temperature,
-						messages: [
-							{
-								role: "system",
-								content: generateObjectDescription,
-							},
-							{
-								role: "user",
-								content: [
-									{
-										type: "text",
-										text: "Context image:",
-									},
-									{
-										type: "image_url",
-										image_url: {
-											url: contextImageBase64,
-										},
-									},
-									{
-										type: "text",
-										text: "Selected object to describe:",
-									},
-									{
-										type: "image_url",
-										image_url: {
-											url: selectedObjectImageBase64,
-										},
-									},
-									{
-										type: "text",
-										text: "Product description:",
-									},
-								],
-							},
-						],
-					}),
+					body: formData,
 				});
-
 				if (!response.ok) {
-					const errorData = await response.text();
-					throw new Error(`Server error: ${response.status} - ${errorData}`);
+					throw new Error(`HTTP error! Status: ${response.status}`);
 				}
 
 				const data = await response.json();
-				const result =
-					data.choices[0]?.message?.content || "No description generated";
-
-				return result;
+				return data.result;
 			} catch (error) {
 				throw new Error(
 					`Vision inference failed: ${error instanceof Error ? error.message : "Unknown error"}`,
 				);
 			}
 		},
-		[baseURL, maxTokens, temperature],
+		[],
 	);
 
 	return {
@@ -309,10 +254,25 @@ export const useSetSelectedImage = () => {
 	const setImage = useAppStore((state) => state.setImage);
 	const setScale = useAppStore((state) => state.setScale);
 	const setTensors = useAppStore((state) => state.setTensor);
+
 	const { data, isLoading } = useQuery({
-		queryKey: [image?.name],
+		queryKey: [image?.name, image?.size, image?.lastModified],
 		enabled: !!image,
 		queryFn: async () => {
+			// Check cache first
+			const cachedData = await getCachedTensorData(image!);
+
+			if (cachedData) {
+				console.log("Using cached tensor data");
+				return {
+					scale: cachedData.scale,
+					lowResTensor: cachedData.tensor,
+					fromCache: true,
+				};
+			}
+
+			// If not in cache, process the image
+			console.log("Processing image and caching result");
 			const { blob, scale } = (await imageToBlob(image!)) as {
 				blob: Blob;
 				scale: ModelScale;
@@ -333,10 +293,15 @@ export const useSetSelectedImage = () => {
 				embeddings[0],
 				[1, 256, 64, 64],
 			);
+
+			// Cache the result
+			await setCachedTensorData(image!, scale, lowResTensor);
+
 			return {
 				blob,
 				scale,
 				lowResTensor,
+				fromCache: false,
 			};
 		},
 	});
@@ -347,10 +312,12 @@ export const useSetSelectedImage = () => {
 			setTensors(data.lowResTensor);
 		}
 	}, [data, setScale, setTensors]);
+
 	return {
 		setImage,
 		isLoading,
 		image,
+		fromCache: data?.fromCache || false,
 	};
 };
 
