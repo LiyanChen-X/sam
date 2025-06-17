@@ -37,6 +37,7 @@ export function Tooltip({
 	const closeButtonRef = useRef<Konva.Group>(null);
 	const isInitializedRef = useRef(false);
 	const [isButtonHovered, setIsButtonHovered] = useState(false);
+	const [isCloseButtonHovered, setIsCloseButtonHovered] = useState(false);
 
 	const tooltipDimensions = useMemo(() => {
 		const baseDimensions = calculateTooltipDimensions(description || "", 24);
@@ -185,22 +186,58 @@ export function Tooltip({
 					y={tooltipPos.y}
 					onClick={onCancel}
 					onTap={onCancel}
+					onMouseEnter={(e) => {
+						setIsCloseButtonHovered(true);
+						const container = e.target.getStage()?.container();
+						if (container) {
+							container.style.cursor = "pointer";
+						}
+						// Scale animation on hover
+						closeButtonRef.current?.to({
+							scaleX: 1.15,
+							scaleY: 1.15,
+							duration: 0.2,
+							easing: Konva.Easings.EaseOut,
+						});
+					}}
+					onMouseLeave={(e) => {
+						setIsCloseButtonHovered(false);
+						const container = e.target.getStage()?.container();
+						if (container) {
+							container.style.cursor = "default";
+						}
+						// Scale back to normal
+						closeButtonRef.current?.to({
+							scaleX: 1,
+							scaleY: 1,
+							duration: 0.2,
+							easing: Konva.Easings.EaseOut,
+						});
+					}}
 					listening={true}
 				>
 					{/* Badge background */}
-					<Circle radius={16} fill="#1e293b" stroke="#3b82f6" strokeWidth={1} />
+					<Circle
+						radius={18}
+						fill="#1e293b"
+						stroke={isCloseButtonHovered ? "#dc2626" : "#ef4444"}
+						strokeWidth={1}
+					/>
 					{/* Inner circle */}
-					<Circle radius={14} fill="#0f172a" />
+					<Circle
+						radius={16}
+						fill={isCloseButtonHovered ? "#7f1d1d" : "#991b1b"}
+					/>
 					{/* Close icon */}
 					<Line
-						points={[-4, -4, 4, 4]}
-						stroke="#60a5fa"
+						points={[-5, -5, 5, 5]}
+						stroke={isCloseButtonHovered ? "#fca5a5" : "#fefefe"}
 						strokeWidth={2}
 						lineCap="round"
 					/>
 					<Line
-						points={[4, -4, -4, 4]}
-						stroke="#60a5fa"
+						points={[5, -5, -5, 5]}
+						stroke={isCloseButtonHovered ? "#fca5a5" : "#fefefe"}
 						strokeWidth={2}
 						lineCap="round"
 					/>

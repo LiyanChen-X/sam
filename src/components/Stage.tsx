@@ -82,10 +82,10 @@ export function Stage({ image }: Props) {
 		}
 		const { data, dims } = activeSegment;
 		return rleToImage(data, dims[0], dims[1], {
-			r: 59,
-			g: 130,
-			b: 246,
-			a: 120,
+			r: 100,
+			g: 116,
+			b: 139,
+			a: 160,
 		});
 	}, [activeSegment]);
 

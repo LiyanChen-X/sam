@@ -12,7 +12,7 @@ export function Sidebar() {
 		>
 			{!activeSegment && (
 				<div className="flex items-center justify-center h-full">
-					<p className="text-gray-500">No segment selected</p>
+					<p className="text-gray-500">No listing created yet...</p>
 				</div>
 			)}
 			{activeSegment && <SegmentEditor segment={activeSegment} />}

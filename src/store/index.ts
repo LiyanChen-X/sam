@@ -6,6 +6,7 @@ import {
 } from "@/lib/image-helper";
 import { getCachedTensorData, setCachedTensorData } from "@/lib/tensor-cache";
 import type { Click } from "@/types/Click";
+import type { ListingDraft } from "@/types/ListingDraft";
 import type { ModelScale } from "@/types/Scale";
 import type { Segment } from "@/types/Segment";
 import {
@@ -33,6 +34,8 @@ interface AppState {
 	scale: ModelScale | undefined;
 	lowResTensors: TypedTensor<"float32"> | undefined;
 	activeSegment: Segment | undefined;
+	listingDrafts: ListingDraft[];
+	selectedListingDraft: ListingDraft | undefined;
 }
 
 interface AppActions {
@@ -44,6 +47,9 @@ interface AppActions {
 	setSmolVLMModel: (model: PreTrainedModel) => void;
 	setSmolVLMModelProcessor: (processor: any) => void;
 	setActiveSegment: (segment: Segment | undefined) => void;
+	addListingDraft: (segment: Segment) => void;
+	removeListingDraft: (id: string) => void;
+	setSelectedListingDraft: (draft: ListingDraft | undefined) => void;
 }
 
 const API_ENDPOINT =
@@ -97,6 +103,46 @@ const useAppStore = create<AppState & AppActions>((set) => ({
 	setActiveSegment: (segment) =>
 		set({
 			activeSegment: segment,
+		}),
+	listingDrafts: [],
+	selectedListingDraft: undefined,
+	addListingDraft: (segment) =>
+		set((state) => {
+			const newDraft: ListingDraft = {
+				id: segment.id,
+				status: "draft",
+				segment: segment,
+				listingDetails: {
+					title: "",
+					description: segment.description || "",
+					image: "",
+					price: 0,
+					category: "",
+				},
+			};
+			const updatedDrafts = [...state.listingDrafts, newDraft];
+			return {
+				listingDrafts: updatedDrafts,
+				selectedListingDraft: newDraft,
+			};
+		}),
+	removeListingDraft: (id) =>
+		set((state) => {
+			const updatedDrafts = state.listingDrafts.filter(
+				(draft) => draft.id !== id,
+			);
+			const selectedDraft =
+				state.selectedListingDraft?.id === id
+					? undefined
+					: state.selectedListingDraft;
+			return {
+				listingDrafts: updatedDrafts,
+				selectedListingDraft: selectedDraft,
+			};
+		}),
+	setSelectedListingDraft: (draft) =>
+		set({
+			selectedListingDraft: draft,
 		}),
 }));
 
@@ -401,5 +447,24 @@ export const useActiveSegment = () => {
 	return {
 		activeSegment,
 		setActiveSegment,
+	};
+};
+
+export const useListingDrafts = () => {
+	const listingDrafts = useAppStore((store) => store.listingDrafts);
+	const selectedListingDraft = useAppStore(
+		(store) => store.selectedListingDraft,
+	);
+	const addListingDraft = useAppStore((store) => store.addListingDraft);
+	const removeListingDraft = useAppStore((store) => store.removeListingDraft);
+	const setSelectedListingDraft = useAppStore(
+		(store) => store.setSelectedListingDraft,
+	);
+	return {
+		listingDrafts,
+		selectedListingDraft,
+		addListingDraft,
+		removeListingDraft,
+		setSelectedListingDraft,
 	};
 };
