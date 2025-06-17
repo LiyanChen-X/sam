@@ -37,3 +37,52 @@ export const calculateTooltipDimensions = (text: string, fontSize: number) => {
 		textWidth: textWidth,
 	};
 };
+
+// Helper function to calculate tooltip position with smart flipping
+export const calculateTooltipPosition = (
+	mousePos: { x: number; y: number },
+	tooltipDimensions: { width: number; height: number },
+	canvasDimensions: { width: number; height: number },
+) => {
+	const { width: canvasWidth, height: canvasHeight } = canvasDimensions;
+	const offset = 10;
+	const { width: tooltipWidth, height: tooltipHeight } = tooltipDimensions;
+
+	// Priority order for positioning:
+	// 1. Top-right (default)
+	// 2. Top-left
+	// 3. Bottom-right
+	// 4. Bottom-left
+
+	const positions = [
+		// Top-right
+		{ x: mousePos.x + offset, y: mousePos.y - offset - tooltipHeight },
+		// Top-left
+		{
+			x: mousePos.x - offset - tooltipWidth,
+			y: mousePos.y - offset - tooltipHeight,
+		},
+		// Bottom-right
+		{ x: mousePos.x + offset, y: mousePos.y + offset },
+		// Bottom-left
+		{ x: mousePos.x - offset - tooltipWidth, y: mousePos.y + offset },
+	];
+
+	// Find the first position that fits within canvas bounds
+	for (const pos of positions) {
+		if (
+			pos.x >= 0 &&
+			pos.x + tooltipWidth <= canvasWidth &&
+			pos.y >= 0 &&
+			pos.y + tooltipHeight <= canvasHeight
+		) {
+			return pos;
+		}
+	}
+
+	// If no position fits perfectly, constrain to canvas bounds
+	return {
+		x: Math.max(0, Math.min(mousePos.x, canvasWidth - tooltipWidth)),
+		y: Math.max(0, Math.min(mousePos.y, canvasHeight - tooltipHeight)),
+	};
+};

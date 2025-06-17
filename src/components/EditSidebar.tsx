@@ -16,7 +16,10 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useGenerateImage } from "@/hooks/use-generate-image";
+import { fileToImageData } from "@/lib/image-helper";
 import { cn } from "@/lib/utils";
+import { useSelectedImage } from "@/store";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion } from "framer-motion";
 import { useState } from "react";
@@ -40,7 +43,13 @@ interface EditSidebarProps {
 
 export function EditSidebar({ sticker, description }: EditSidebarProps) {
 	const [showEditSection, setShowEditSection] = useState(false);
+	const contextImage = useSelectedImage();
 
+	const { generateImage, isGeneratingImage, generatedImage } = useGenerateImage(
+		contextImage,
+		sticker,
+		description || "",
+	);
 	const form = useForm<FormData>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
@@ -53,7 +62,8 @@ export function EditSidebar({ sticker, description }: EditSidebarProps) {
 	});
 
 	const handleCreateListing = () => {
-		setShowEditSection(true);
+		// setShowEditSection(true);
+		generateImage();
 		// Set the image data when creating the listing
 		if (sticker) {
 			form.setValue("image", sticker.toDataURL());
@@ -109,6 +119,32 @@ export function EditSidebar({ sticker, description }: EditSidebarProps) {
 								layout
 								transition={{ duration: 0.3 }}
 							/>
+
+							{isGeneratingImage && (
+								<motion.div
+									className="flex items-center justify-center w-full h-10 bg-gray-300 rounded-md"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									transition={{ duration: 0.3 }}
+								>
+									<p className="text-sm text-gray-700">Generating image...</p>
+								</motion.div>
+							)}
+
+							{generatedImage && (
+								<motion.img
+									className={cn(
+										"cursor-pointer rounded-md",
+										showEditSection
+											? " max-h-[240px] object-cover "
+											: "max-w-[75%] max-h-20 md:max-h-24 lg:max-h-28 xl:max-h-32",
+									)}
+									alt="sticker"
+									src={generatedImage}
+									layout
+									transition={{ duration: 0.3 }}
+								/>
+							)}
 
 							{!showEditSection && (
 								<div className="flex flex-col gap-2">

@@ -1,17 +1,12 @@
-import { imageDataToBase64 } from "@/lib/image-helper";
+import { fileToBase64, svgToBase64 } from "@/lib/image-helper";
 import { useMutation } from "@tanstack/react-query";
 
 // TODO: move the API call to backend
 export function useGenerateImage(
-	contextImage: ImageData,
-	selectedObjectImage: ImageData,
+	contextImage: File | undefined,
+	selectedObjectImage: HTMLCanvasElement | undefined,
+	description: string,
 ) {
-	const contextImageBase64 = imageDataToBase64(contextImage);
-	const selectedObjectImageBase64 = imageDataToBase64(selectedObjectImage);
-	const formData = new FormData();
-	formData.append("contextImage", contextImageBase64);
-	formData.append("croppedObject", selectedObjectImageBase64);
-
 	const {
 		mutateAsync: generateImage,
 		isPending,
@@ -19,6 +14,12 @@ export function useGenerateImage(
 	} = useMutation({
 		mutationKey: ["generate-image"],
 		mutationFn: async () => {
+			const formData = new FormData();
+			if (!contextImage || !selectedObjectImage) {
+				return;
+			}
+			formData.append("contextImage", await fileToBase64(contextImage));
+			formData.append("croppedObject", svgToBase64(selectedObjectImage));
 			const response = await fetch("/api/generate-image", {
 				method: "POST",
 				body: formData,
@@ -26,7 +27,8 @@ export function useGenerateImage(
 			if (!response.ok) {
 				throw new Error(`HTTP error! Status: ${response.status}`);
 			}
-			return response.json();
+			const { result } = await response.json();
+			return result;
 		},
 	});
 

@@ -28,6 +28,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.10.5",
+    "idb": "^8.0.3",
     "konva": "^9.3.20",
     "lucide-react": "^0.507.0",
     "lz-string": "^1.5.0",
@@ -57,7 +58,7 @@
     "vite": "^6.1.0",
     "vitest": "^3.0.5",
     "web-vitals": "^4.2.4"
-  }, 
+  },
   "resolutions": {
     "zod": "^3.25.0"
   }

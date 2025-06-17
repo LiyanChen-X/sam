@@ -27,6 +27,53 @@ export const imageDataToBase64 = (imageData: ImageData): string => {
 	return canvas.toDataURL("image/jpeg", 1);
 };
 
+export const svgToBase64 = (
+	canvas: HTMLCanvasElement,
+	maxSize = 720,
+): string => {
+	const resizedCanvas = resizeCanvasToMaxSize(canvas, maxSize);
+	return resizedCanvas.toDataURL("image/png");
+};
+
+export const fileToBase64 = async (
+	file: File,
+	maxSize = 720,
+): Promise<string> => {
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+
+		img.onload = () => {
+			const canvas = document.createElement("canvas");
+			const ctx = canvas.getContext("2d");
+
+			if (!ctx) {
+				reject(new Error("Could not get canvas context"));
+				return;
+			}
+
+			const { width, height } = img;
+			canvas.width = width;
+			canvas.height = height;
+
+			ctx.drawImage(img, 0, 0);
+
+			// Resize canvas to maxSize
+			const resizedCanvas = resizeCanvasToMaxSize(canvas, maxSize);
+			const base64 = resizedCanvas.toDataURL("image/png");
+
+			URL.revokeObjectURL(img.src);
+			resolve(base64);
+		};
+
+		img.onerror = () => {
+			URL.revokeObjectURL(img.src);
+			reject(new Error("Failed to load image"));
+		};
+
+		img.src = URL.createObjectURL(file);
+	});
+};
+
 export const fileToImageData = async (
 	file: File,
 	scaleType: "display" | "upload" | "original" = "upload",
@@ -103,7 +150,7 @@ export const fileToImageData = async (
 
 export const resizeCanvasToMaxSize = (
 	sourceCanvas: HTMLCanvasElement,
-	maxSize = 640,
+	maxSize = 1024,
 ): HTMLCanvasElement => {
 	const originalWidth = sourceCanvas.width;
 	const originalHeight = sourceCanvas.height;
@@ -242,6 +289,46 @@ function toImageData(input: any, width: number, height: number) {
 
 export function rleToImage(input: any, width: number, height: number) {
 	return imageDataToImage(toImageData(input, width, height));
+}
+
+export function getMaskCenter(
+	input: any,
+	width: number,
+	height: number,
+): { x: number; y: number } {
+	// Add validation
+	if (!input || input.length === 0) {
+		return { x: width / 2, y: height / 2 };
+	}
+
+	let totalX = 0;
+	let totalY = 0;
+	let pixelCount = 0;
+
+	// Use standard row-major indexing
+	// Origin (0,0) at top-left, x increases right, y increases down
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const i = y * width + x; // Row-major: i = y * width + x
+			if (i < input.length && input[i] > 0.0) {
+				totalX += x;
+				totalY += y;
+				pixelCount++;
+			}
+		}
+	}
+
+	if (pixelCount === 0) {
+		return { x: width / 2, y: height / 2 };
+	}
+
+	const centerX = Math.round(totalX / pixelCount);
+	const centerY = Math.round(totalY / pixelCount);
+
+	return {
+		x: centerX,
+		y: centerY,
+	};
 }
 
 export function cropImageByPath(

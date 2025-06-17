@@ -354,7 +354,7 @@ export const useRunSamModel = () => {
 			});
 			return output[model.outputNames[0]];
 		},
-		[modelScale, model, tensors],
+		[tensors, model, modelScale],
 	);
 
 	return {
