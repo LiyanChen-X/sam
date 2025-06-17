@@ -7,6 +7,7 @@ import {
 import { getCachedTensorData, setCachedTensorData } from "@/lib/tensor-cache";
 import type { Click } from "@/types/Click";
 import type { ModelScale } from "@/types/Scale";
+import type { Segment } from "@/types/Segment";
 import {
 	AutoModelForVision2Seq,
 	AutoProcessor,
@@ -31,6 +32,7 @@ interface AppState {
 	clicks: Click[];
 	scale: ModelScale | undefined;
 	lowResTensors: TypedTensor<"float32"> | undefined;
+	activeSegment: Segment | undefined;
 }
 
 interface AppActions {
@@ -41,6 +43,7 @@ interface AppActions {
 	setTensor: (tensor: TypedTensor<"float32">) => void;
 	setSmolVLMModel: (model: PreTrainedModel) => void;
 	setSmolVLMModelProcessor: (processor: any) => void;
+	setActiveSegment: (segment: Segment | undefined) => void;
 }
 
 const API_ENDPOINT =
@@ -56,6 +59,7 @@ const useAppStore = create<AppState & AppActions>((set) => ({
 	smolVLMModelProcessor: undefined,
 	clicks: [],
 	lowResTensors: undefined,
+	activeSegment: undefined,
 	setModel(model) {
 		set({
 			model,
@@ -89,6 +93,10 @@ const useAppStore = create<AppState & AppActions>((set) => ({
 	setSmolVLMModelProcessor: (processor) =>
 		set({
 			smolVLMModelProcessor: processor,
+		}),
+	setActiveSegment: (segment) =>
+		set({
+			activeSegment: segment,
 		}),
 }));
 
@@ -384,5 +392,14 @@ export const useClicks = () => {
 		addClick,
 		clicks,
 		resetClick,
+	};
+};
+
+export const useActiveSegment = () => {
+	const activeSegment = useAppStore((store) => store.activeSegment);
+	const setActiveSegment = useAppStore((store) => store.setActiveSegment);
+	return {
+		activeSegment,
+		setActiveSegment,
 	};
 };

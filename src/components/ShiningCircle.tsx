@@ -1,14 +1,16 @@
 import Konva from "konva";
+import type { KonvaEventObject } from "konva/lib/Node";
 import { useEffect, useRef } from "react";
-import { Circle } from "react-konva";
+import { Circle, Group } from "react-konva";
 
-type ClickAnnotation = {
+type Annotation = {
 	x: number;
 	y: number;
+	onClick: () => void;
 };
 
 // Shining Circle Component
-export const ShiningCircle = ({ x, y }: ClickAnnotation) => {
+export const ShiningCircle = ({ x, y, onClick }: Annotation) => {
 	const circleRef = useRef<Konva.Circle>(null);
 	const outerCircleRef = useRef<Konva.Circle>(null);
 	const glowCircleRef = useRef<Konva.Circle>(null);
@@ -49,33 +51,66 @@ export const ShiningCircle = ({ x, y }: ClickAnnotation) => {
 		}
 	}, []);
 
+	const handleClick = (e: KonvaEventObject<MouseEvent>) => {
+		e.cancelBubble = true;
+		e.evt.preventDefault();
+		e.evt.stopPropagation();
+		onClick();
+	};
+
+	// Prevent mouse events from bubbling to stage
+	const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+		e.cancelBubble = true;
+	};
+
+	const handleMouseEnter = (e: KonvaEventObject<MouseEvent>) => {
+		e.cancelBubble = true;
+	};
+
+	const handleMouseLeave = (e: KonvaEventObject<MouseEvent>) => {
+		e.cancelBubble = true;
+	};
+
 	return (
-		<>
-			{/* Outermost expanding circle */}
+		<Group x={x} y={y}>
+			{/* Invisible clickable area */}
+			<Circle
+				x={0}
+				y={0}
+				radius={25}
+				fill="transparent"
+				onClick={handleClick}
+				onTap={handleClick}
+				onMouseOut={handleMouseLeave}
+				onMouseMove={handleMouseMove}
+				onMouseEnter={handleMouseEnter}
+				onMouseLeave={handleMouseLeave}
+				cursor="pointer"
+			/>
+
+			{/* All other circles don't listen to any events */}
 			<Circle
 				ref={outerCircleRef}
-				x={x}
-				y={y}
+				x={0}
+				y={0}
 				radius={15}
 				fill="#60a5fa"
 				opacity={0.6}
 				listening={false}
 			/>
-			{/* Glow effect circle */}
 			<Circle
 				ref={glowCircleRef}
-				x={x}
-				y={y}
+				x={0}
+				y={0}
 				radius={12}
 				fill="#3b82f6"
 				opacity={0.3}
 				listening={false}
 			/>
-			{/* Inner pulsing circle */}
 			<Circle
 				ref={circleRef}
-				x={x}
-				y={y}
+				x={0}
+				y={0}
 				radius={10}
 				fill="#2563eb"
 				stroke="#1d4ed8"
@@ -83,18 +118,16 @@ export const ShiningCircle = ({ x, y }: ClickAnnotation) => {
 				opacity={0.8}
 				listening={false}
 			/>
-			{/* Center bright circle */}
 			<Circle
-				x={x}
-				y={y}
+				x={0}
+				y={0}
 				radius={5}
 				fill="#60a5fa"
 				stroke="white"
 				strokeWidth={2}
 				listening={false}
 			/>
-			{/* Center dot */}
-			<Circle x={x} y={y} radius={2} fill="white" listening={false} />
-		</>
+			<Circle x={0} y={0} radius={2} fill="white" listening={false} />
+		</Group>
 	);
 };

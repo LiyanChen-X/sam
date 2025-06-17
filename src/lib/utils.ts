@@ -86,3 +86,13 @@ export const calculateTooltipPosition = (
 		y: Math.max(0, Math.min(mousePos.y, canvasHeight - tooltipHeight)),
 	};
 };
+
+export const generateRandomNumericId = (length = 8): string => {
+	let result = "";
+
+	for (let i = 0; i < length; i++) {
+		result += Math.floor(Math.random() * 10).toString();
+	}
+
+	return result;
+};

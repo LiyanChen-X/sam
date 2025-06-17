@@ -150,7 +150,7 @@ export const fileToImageData = async (
 
 export const resizeCanvasToMaxSize = (
 	sourceCanvas: HTMLCanvasElement,
-	maxSize = 1024,
+	maxSize = 720,
 ): HTMLCanvasElement => {
 	const originalWidth = sourceCanvas.width;
 	const originalHeight = sourceCanvas.height;
@@ -273,8 +273,18 @@ function imageDataToImage(imageData: ImageData) {
 	return image;
 }
 
-function toImageData(input: any, width: number, height: number) {
-	const [r, g, b, a] = [0, 114, 189, 255];
+function toImageData(
+	input: any,
+	width: number,
+	height: number,
+	color: { r: number; g: number; b: number; a: number } = {
+		r: 0,
+		g: 114,
+		b: 189,
+		a: 255,
+	},
+) {
+	const { r, g, b, a } = color;
 	const arr = new Uint8ClampedArray(4 * width * height).fill(0);
 	for (let i = 0; i < input.length; i++) {
 		if (input[i] > 0.0) {
@@ -287,8 +297,25 @@ function toImageData(input: any, width: number, height: number) {
 	return new ImageData(arr, height, width);
 }
 
-export function rleToImage(input: any, width: number, height: number) {
-	return imageDataToImage(toImageData(input, width, height));
+export function rleToImage(
+	input: any,
+	width: number,
+	height: number,
+	options: {
+		r?: number;
+		g?: number;
+		b?: number;
+		a?: number;
+	} = {},
+) {
+	const color = {
+		r: options.r ?? 0,
+		g: options.g ?? 114,
+		b: options.b ?? 189,
+		a: options.a ?? 255,
+	};
+
+	return imageDataToImage(toImageData(input, width, height, color));
 }
 
 export function getMaskCenter(
