@@ -12,8 +12,10 @@ import {
 	rleToImage,
 	traceOnnxMaskToSVG,
 } from "@/lib/image-helper";
+import { segmentCache } from "@/lib/segment-cache";
 import {
-	useActiveSegment,
+	useCandidateSegment,
+	useListingDrafts,
 	useModelScale,
 	useRunLocalVisionInference,
 	useRunSamModel,
@@ -30,7 +32,7 @@ import { useDebouncedCallback } from "use-debounce";
 Konva.pixelRatio = 1;
 
 const MAX_CANVAS_AREA = 1677721;
-const HOVERING_SEGMENT_ID = "hovering-segment";
+
 export function Stage({ image }: Props) {
 	const {
 		width = 0,
@@ -65,8 +67,24 @@ export function Stage({ image }: Props) {
 			fullImage: null,
 		};
 	}, [image]);
-	const { activeSegment, setActiveSegment } = useActiveSegment();
+	const { candidateSegment, setCandidateSegment } = useCandidateSegment();
+	const { addListingDraft, selectedListingDraft, setSelectedListingDraft } =
+		useListingDrafts();
 	const [hoveringSegment, setHoveringSegment] = useState<Segment | undefined>();
+
+	const { listingDrafts } = useListingDrafts();
+
+	const inEditStatus = useMemo(
+		() => !!selectedListingDraft,
+		[selectedListingDraft],
+	);
+
+	const activeSegment = useMemo(() => {
+		if (selectedListingDraft) {
+			return selectedListingDraft?.segment;
+		}
+		return candidateSegment;
+	}, [candidateSegment, selectedListingDraft]);
 
 	const hoveringMask = useMemo(() => {
 		if (!hoveringSegment) {
@@ -142,52 +160,64 @@ export function Stage({ image }: Props) {
 
 			const { data, dims } = results!;
 
-			const processingStartTime = performance.now();
-			const hoveringSVG = traceOnnxMaskToSVG(data, dims[1], dims[0]);
-			const sticker = cropImageByPath(
-				fullImage!,
-				hoveringSVG.join(" "),
-				width,
-				height,
-				uploadScale,
-			)!;
-			const contextImage = await fileToImageData(image!);
-			const stickerImage = resizeCanvasToMaxSize(sticker!);
-			const processingEndTime = performance.now();
-			console.log(
-				`🖼️ Image processing: ${(processingEndTime - processingStartTime).toFixed(2)}ms`,
-			);
+			const segmentRecord = segmentCache.findBestMatch(data as Uint8Array, 0.9);
+			if (segmentRecord) {
+				console.log(`🔍 Found existing segment with ID: ${segmentRecord.id}`);
+				setHoveringSegment(segmentRecord.result);
+				setRefPos({
+					x: (x / uploadScale) * canvasScale,
+					y: (y / uploadScale) * canvasScale,
+				});
+				console.groupEnd();
+			} else {
+				const processingStartTime = performance.now();
+				const hoveringSVG = traceOnnxMaskToSVG(data, dims[1], dims[0]);
+				const sticker = cropImageByPath(
+					fullImage!,
+					hoveringSVG.join(" "),
+					width,
+					height,
+					uploadScale,
+				)!;
+				const contextImage = await fileToImageData(image!);
+				const stickerImage = resizeCanvasToMaxSize(sticker!);
+				const processingEndTime = performance.now();
+				console.log(
+					`🖼️ Image processing: ${(processingEndTime - processingStartTime).toFixed(2)}ms`,
+				);
 
-			const visionStartTime = performance.now();
-			const description = await runVisionInference(
-				contextImage,
-				stickerImage
-					.getContext("2d")
-					?.getImageData(0, 0, stickerImage.width, stickerImage.height)!,
-			);
-			const visionEndTime = performance.now();
-			console.log(
-				`👁️ Vision inference: ${(visionEndTime - visionStartTime).toFixed(2)}ms`,
-			);
+				const visionStartTime = performance.now();
+				const description = await runVisionInference(
+					contextImage,
+					stickerImage
+						.getContext("2d")
+						?.getImageData(0, 0, stickerImage.width, stickerImage.height)!,
+				);
+				const visionEndTime = performance.now();
+				console.log(
+					`👁️ Vision inference: ${(visionEndTime - visionStartTime).toFixed(2)}ms`,
+				);
 
-			const totalTime = performance.now() - startTime;
-			console.log(`⏱️ Total time: ${totalTime.toFixed(2)}ms`);
-			console.groupEnd();
-
-			setHoveringSegment({
-				id: HOVERING_SEGMENT_ID,
-				sticker,
-				description,
-				data,
-				dims,
-			});
-			setRefPos(pos);
+				const totalTime = performance.now() - startTime;
+				console.log(`⏱️ Total time: ${totalTime.toFixed(2)}ms`);
+				console.groupEnd();
+				const segment = {
+					id: generateId(),
+					sticker,
+					description,
+					data,
+					dims,
+				};
+				const cacheId = segmentCache.store(data as Uint8Array, segment);
+				console.log(`💾 Stored segment in cache with ID: ${cacheId}`);
+				setHoveringSegment(segment);
+				setRefPos(pos);
+			}
 		},
 		25,
 	);
 
 	const onMouseOut = () => {
-		console.log("Mouse out of stage");
 		setIsHovering(false);
 		setHoveringSegment(undefined);
 	};
@@ -206,7 +236,14 @@ export function Stage({ image }: Props) {
 			return;
 		}
 
-		const { data, dims } = hoveringSegment;
+		const { data, dims, id } = hoveringSegment;
+		const draft = listingDrafts.filter((draft) => draft.segment.id === id);
+		if (draft.length > 0) {
+			console.log("Segment already exists in draft, skipping...");
+			setSelectedListingDraft(draft[0]);
+			setHoveringSegment(undefined);
+			return;
+		}
 
 		const maskWidth = dims[0];
 		const maskHeight = dims[1];
@@ -219,10 +256,7 @@ export function Stage({ image }: Props) {
 			y: canvasY,
 		});
 		setHoveringSegment(undefined);
-		setActiveSegment({
-			...hoveringSegment,
-			id: generateId(),
-		});
+		setCandidateSegment(hoveringSegment);
 	};
 
 	const canvasDimensions = useMemo(
@@ -233,7 +267,8 @@ export function Stage({ image }: Props) {
 		[canvasWidth, canvasHeight],
 	);
 
-	const isTooltipVisible = !!(activeSegment || hoveringSegment);
+	const isTooltipVisible =
+		!!(activeSegment || hoveringSegment) && !inEditStatus;
 	const tooltipContent =
 		activeSegment?.description || hoveringSegment?.description || "";
 	const showTooltipAction = !!activeSegment;
@@ -266,7 +301,11 @@ export function Stage({ image }: Props) {
 										x={activeSegmentAnnotation.x}
 										y={activeSegmentAnnotation.y}
 										onClick={() => {
-											setActiveSegment(undefined);
+											setCandidateSegment(undefined);
+											setHoveringSegment(undefined);
+											if (inEditStatus) {
+												setSelectedListingDraft(undefined);
+											}
 										}}
 									/>
 								)}
@@ -301,10 +340,12 @@ export function Stage({ image }: Props) {
 									canvasDimensions={canvasDimensions}
 									showTooltipAction={showTooltipAction}
 									onCancel={() => {
-										setActiveSegment(undefined);
+										setCandidateSegment(undefined);
 									}}
 									onProceed={() => {
-										console.log("proceed");
+										if (candidateSegment) {
+											addListingDraft(candidateSegment);
+										}
 									}}
 								/>
 							)}

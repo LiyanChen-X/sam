@@ -33,7 +33,7 @@ interface AppState {
 	clicks: Click[];
 	scale: ModelScale | undefined;
 	lowResTensors: TypedTensor<"float32"> | undefined;
-	activeSegment: Segment | undefined;
+	candidateSegment: Segment | undefined;
 	listingDrafts: ListingDraft[];
 	selectedListingDraft: ListingDraft | undefined;
 }
@@ -46,7 +46,7 @@ interface AppActions {
 	setTensor: (tensor: TypedTensor<"float32">) => void;
 	setSmolVLMModel: (model: PreTrainedModel) => void;
 	setSmolVLMModelProcessor: (processor: any) => void;
-	setActiveSegment: (segment: Segment | undefined) => void;
+	setCandidateSegment: (segment: Segment | undefined) => void;
 	addListingDraft: (segment: Segment) => void;
 	removeListingDraft: (id: string) => void;
 	setSelectedListingDraft: (draft: ListingDraft | undefined) => void;
@@ -65,7 +65,7 @@ const useAppStore = create<AppState & AppActions>((set) => ({
 	smolVLMModelProcessor: undefined,
 	clicks: [],
 	lowResTensors: undefined,
-	activeSegment: undefined,
+	candidateSegment: undefined,
 	setModel(model) {
 		set({
 			model,
@@ -100,9 +100,9 @@ const useAppStore = create<AppState & AppActions>((set) => ({
 		set({
 			smolVLMModelProcessor: processor,
 		}),
-	setActiveSegment: (segment) =>
+	setCandidateSegment: (segment) =>
 		set({
-			activeSegment: segment,
+			candidateSegment: segment,
 		}),
 	listingDrafts: [],
 	selectedListingDraft: undefined,
@@ -441,12 +441,12 @@ export const useClicks = () => {
 	};
 };
 
-export const useActiveSegment = () => {
-	const activeSegment = useAppStore((store) => store.activeSegment);
-	const setActiveSegment = useAppStore((store) => store.setActiveSegment);
+export const useCandidateSegment = () => {
+	const candidateSegment = useAppStore((store) => store.candidateSegment);
+	const setCandidateSegment = useAppStore((store) => store.setCandidateSegment);
 	return {
-		activeSegment,
-		setActiveSegment,
+		candidateSegment,
+		setCandidateSegment,
 	};
 };
 

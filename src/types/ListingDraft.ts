@@ -5,7 +5,7 @@ export type ListingDraft = {
 	status: "published" | "draft";
 	segment: Segment;
 	// TODO: figure out how to create listing
-	listingDetails: {
+	listingDetails?: {
 		title: string;
 		description: string;
 		image: string;

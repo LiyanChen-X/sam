@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import z from "zod/v4";
 
@@ -58,120 +59,173 @@ export function ListingForm({
 		onSubmit(data);
 	};
 
+	// Animation variants for staggered appearance
+	const containerVariants = {
+		hidden: { opacity: 0 },
+		visible: {
+			opacity: 1,
+			transition: {
+				delayChildren: 0.1,
+				staggerChildren: 0.08,
+			},
+		},
+	};
+
+	const itemVariants = {
+		hidden: {
+			opacity: 0,
+			y: 20,
+			scale: 0.95,
+		},
+		visible: {
+			opacity: 1,
+			y: 0,
+			scale: 1,
+			transition: {
+				duration: 0.4,
+				ease: [0.4, 0.0, 0.2, 1],
+			},
+		},
+	};
+
 	return (
-		<div className="p-4">
+		<motion.div
+			className="p-4 h-full"
+			variants={containerVariants}
+			initial="hidden"
+			animate="visible"
+		>
 			<Form {...form}>
-				<form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-					<h3 className="text-lg font-semibold text-gray-800 mb-4">
+				<form
+					onSubmit={form.handleSubmit(handleSubmit)}
+					className="space-y-4 h-full flex flex-col"
+				>
+					<motion.h3
+						className="text-lg font-semibold text-gray-800 mb-4"
+						variants={itemVariants}
+					>
 						Edit Listing
-					</h3>
+					</motion.h3>
+					<div className="flex flex-col flex-1 justify-between">
+						<div className="space-y-4">
+							<FormField
+								control={form.control}
+								name="image"
+								render={({ field }) => (
+									<FormItem className="hidden">
+										<FormControl>
+											<Input type="hidden" {...field} />
+										</FormControl>
+									</FormItem>
+								)}
+							/>
 
-					{/* Hidden image field to include in form data */}
-					<FormField
-						control={form.control}
-						name="image"
-						render={({ field }) => (
-							<FormItem className="hidden">
-								<FormControl>
-									<Input type="hidden" {...field} />
-								</FormControl>
-							</FormItem>
-						)}
-					/>
+							<motion.div variants={itemVariants}>
+								<FormField
+									control={form.control}
+									name="title"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Title</FormLabel>
+											<FormControl>
+												<Input placeholder="Enter listing title" {...field} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</motion.div>
 
-					<FormField
-						control={form.control}
-						name="title"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Title</FormLabel>
-								<FormControl>
-									<Input placeholder="Enter listing title" {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+							<motion.div variants={itemVariants}>
+								<FormField
+									control={form.control}
+									name="description"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Description</FormLabel>
+											<FormControl>
+												<Textarea
+													placeholder="Enter listing description"
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</motion.div>
 
-					<FormField
-						control={form.control}
-						name="description"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Description</FormLabel>
-								<FormControl>
-									<Textarea
-										placeholder="Enter listing description"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+							<motion.div variants={itemVariants}>
+								<FormField
+									control={form.control}
+									name="price"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Price</FormLabel>
+											<FormControl>
+												<Input
+													type="number"
+													placeholder="0.00"
+													step="0.01"
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</motion.div>
 
-					<FormField
-						control={form.control}
-						name="price"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Price</FormLabel>
-								<FormControl>
-									<Input
-										type="number"
-										placeholder="0.00"
-										step="0.01"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+							<motion.div variants={itemVariants}>
+								<FormField
+									control={form.control}
+									name="category"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Category</FormLabel>
+											<Select
+												onValueChange={field.onChange}
+												defaultValue={field.value}
+											>
+												<FormControl>
+													<SelectTrigger>
+														<SelectValue placeholder="Select category" />
+													</SelectTrigger>
+												</FormControl>
+												<SelectContent>
+													<SelectItem value="electronics">
+														Electronics
+													</SelectItem>
+													<SelectItem value="clothing">Clothing</SelectItem>
+													<SelectItem value="home">Home & Garden</SelectItem>
+													<SelectItem value="toys">Toys</SelectItem>
+													<SelectItem value="other">Other</SelectItem>
+												</SelectContent>
+											</Select>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</motion.div>
+						</div>
+						{/* Hidden image field to include in form data */}
 
-					<FormField
-						control={form.control}
-						name="category"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Category</FormLabel>
-								<Select
-									onValueChange={field.onChange}
-									defaultValue={field.value}
-								>
-									<FormControl>
-										<SelectTrigger>
-											<SelectValue placeholder="Select category" />
-										</SelectTrigger>
-									</FormControl>
-									<SelectContent>
-										<SelectItem value="electronics">Electronics</SelectItem>
-										<SelectItem value="clothing">Clothing</SelectItem>
-										<SelectItem value="home">Home & Garden</SelectItem>
-										<SelectItem value="toys">Toys</SelectItem>
-										<SelectItem value="other">Other</SelectItem>
-									</SelectContent>
-								</Select>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-
-					<div className="flex space-x-2 pt-4">
-						<Button type="submit" className="flex-1 text-sm py-2">
-							Publish
-						</Button>
-						<Button
-							type="button"
-							variant="outline"
-							className="flex-1 text-sm py-2"
-							onClick={onCancel}
-						>
-							Cancel
-						</Button>
+						<motion.div className="flex space-x-2 pt-4" variants={itemVariants}>
+							<Button type="submit" className="flex-1 text-sm py-2">
+								Publish
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								className="flex-1 text-sm py-2"
+								onClick={onCancel}
+							>
+								Cancel
+							</Button>
+						</motion.div>
 					</div>
 				</form>
 			</Form>
-		</div>
+		</motion.div>
 	);
 }
