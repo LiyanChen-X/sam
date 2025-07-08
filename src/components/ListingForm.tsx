@@ -220,7 +220,7 @@ export function ListingForm({
 								className="flex-1 text-sm py-2"
 								onClick={onCancel}
 							>
-								Cancel
+								Save for later
 							</Button>
 						</motion.div>
 					</div>

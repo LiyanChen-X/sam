@@ -1,6 +1,8 @@
 import { useCandidateSegment, useListingDrafts } from "@/store";
 import { AnimatePresence } from "framer-motion";
+import { cn } from "../lib/utils";
 import { ListingDraftCard } from "./ListingDraftCard";
+import { ScrollArea } from "./ui/scroll-area";
 
 export function Sidebar() {
 	const {
@@ -29,7 +31,7 @@ export function Sidebar() {
 	};
 
 	return (
-		<div id="sidebar" className="w-80 h-full flex flex-col bg-gray-200">
+		<div id="sidebar" className="w-100 h-full flex flex-col bg-gray-200">
 			{/* No drafts state */}
 			{listingDrafts.length === 0 && (
 				<div className="flex items-center justify-center h-full">
@@ -39,27 +41,32 @@ export function Sidebar() {
 
 			{/* Cards list */}
 			{listingDrafts.length > 0 && (
-				<div className="py-4 flex flex-col px-3 h-full">
+				<div className="py-4 flex flex-col px-3 h-full overflow-hidden">
 					<h2 className="text-lg font-semibold text-gray-800 flex-shrink-0 mb-4">
 						Listing Drafts ({listingDrafts.length})
 					</h2>
-					<div className="flex-1 flex flex-col gap-2 overflow-hidden">
-						<AnimatePresence mode="popLayout">
-							{listingDrafts.map((draft) => (
-								<ListingDraftCard
-									key={draft.id}
-									draft={draft}
-									onSelect={handleSelectDraft}
-									onDelete={handleDeleteDraft}
-									isExpanded={selectedListingDraft?.id === draft.id}
-									isCollapsed={
-										selectedListingDraft !== undefined &&
-										selectedListingDraft?.id !== draft.id
-									}
-								/>
-							))}
-						</AnimatePresence>
-					</div>
+
+					<ScrollArea className="h-[calc(100vh-5rem)]">
+						<div
+							className={cn("flex flex-col", !selectedListingDraft && "gap-2")}
+						>
+							<AnimatePresence mode="popLayout">
+								{listingDrafts.map((draft) => (
+									<ListingDraftCard
+										key={draft.id}
+										draft={draft}
+										onSelect={handleSelectDraft}
+										onDelete={handleDeleteDraft}
+										isExpanded={selectedListingDraft?.id === draft.id}
+										isCollapsed={
+											selectedListingDraft !== undefined &&
+											selectedListingDraft?.id !== draft.id
+										}
+									/>
+								))}
+							</AnimatePresence>
+						</div>
+					</ScrollArea>
 				</div>
 			)}
 		</div>

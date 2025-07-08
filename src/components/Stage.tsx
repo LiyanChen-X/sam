@@ -2,8 +2,10 @@ type Props = {
 	image: File;
 };
 import { ShiningCircle } from "@/components/ShiningCircle";
+import { Toolbar } from "@/components/Toolbar";
 import { Tooltip } from "@/components/Tooltip";
 import { useCanvasScale } from "@/hooks/use-canvas-scale";
+import { imageGenerator } from "@/lib/image-generator";
 import {
 	cropImageByPath,
 	fileToImageData,
@@ -344,6 +346,8 @@ export function Stage({ image }: Props) {
 									}}
 									onProceed={() => {
 										if (candidateSegment) {
+											// generate image eagerly
+											imageGenerator.addImageGeneration(candidateSegment);
 											addListingDraft(candidateSegment);
 										}
 									}}
@@ -351,6 +355,16 @@ export function Stage({ image }: Props) {
 							)}
 						</KonvaStage>
 					</div>
+				</div>
+				<div className="mt-4">
+					<Toolbar
+						onModeChange={(mode) => {
+							console.log("Segment mode changed to:", mode);
+						}}
+						onDescriptionChange={(description) => {
+							console.log("Description changed to:", description);
+						}}
+					/>
 				</div>
 			</div>
 		</div>

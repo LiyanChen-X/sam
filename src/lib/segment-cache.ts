@@ -1,6 +1,19 @@
 import type { Segment } from "@/types/Segment";
+import localforage from "localforage";
 
-interface MaskRecord<T> {
+// Configure localforage to use IndexedDB
+localforage.config({
+	driver: localforage.INDEXEDDB,
+	name: "sam-segment-cache",
+	version: 1.0,
+	description: "Segment cache using IndexedDB",
+});
+
+interface MaskRecord<
+	T extends {
+		id: string;
+	},
+> {
 	id: string;
 	mask: Uint8Array;
 	result: T; // Your complex calculation result
@@ -26,16 +39,43 @@ export function calculateIoU(mask1: Uint8Array, mask2: Uint8Array): number {
 	return union === 0 ? 0 : intersection / union;
 }
 
-class LSHMaskCache<T> {
+class LSHMaskCache<T extends { id: string }> {
 	private buckets: Map<string, MaskRecord<T>[]> = new Map();
 	private records: Map<string, MaskRecord<T>> = new Map();
 	private numHashes: number;
 	private hashSize: number;
-	private idCounter = 0;
+	private readonly CACHE_KEY = "segment-cache";
 
 	constructor(numHashes = 16, hashSize = 64) {
 		this.numHashes = numHashes;
 		this.hashSize = hashSize;
+		this.loadCacheFromStorage();
+	}
+
+	private async loadCacheFromStorage() {
+		try {
+			const data = await localforage.getItem<{
+				records: [string, MaskRecord<T>][];
+				buckets: [string, MaskRecord<T>[]][];
+			}>(this.CACHE_KEY);
+			if (data) {
+				this.records = new Map(data.records);
+				this.buckets = new Map(data.buckets);
+			}
+		} catch (error) {
+			console.warn("Failed to load segment cache from localForage:", error);
+		}
+	}
+
+	private async saveCacheToStorage() {
+		try {
+			await localforage.setItem(this.CACHE_KEY, {
+				records: Array.from(this.records.entries()),
+				buckets: Array.from(this.buckets.entries()),
+			});
+		} catch (error) {
+			console.warn("Failed to save segment cache to localForage:", error);
+		}
 	}
 
 	// Generate LSH hash for a mask
@@ -79,7 +119,7 @@ class LSHMaskCache<T> {
 
 	// Store a mask and its result
 	store(mask: Uint8Array, result: T): string {
-		const id = `cache_${++this.idCounter}`;
+		const id = result.id;
 		const hash = this.generateLSHHash(mask);
 		const record: MaskRecord<T> = { id, mask, result, hash };
 
@@ -95,7 +135,16 @@ class LSHMaskCache<T> {
 			this.buckets.get(key)!.push(record);
 		}
 
+		this.saveCacheToStorage();
+
 		return id;
+	}
+
+	// Optionally, add a method to clear the cache
+	async clearCache() {
+		this.records.clear();
+		this.buckets.clear();
+		await localforage.removeItem(this.CACHE_KEY);
 	}
 
 	// Find similar masks
@@ -139,7 +188,7 @@ class LSHMaskCache<T> {
 	// Get the best match
 	findBestMatch(
 		queryMask: Uint8Array,
-		similarityThreshold = 0.9,
+		similarityThreshold = 0.8,
 	): MaskRecord<T> | null {
 		const startTime = performance.now();
 		const results = this.findSimilar(queryMask, similarityThreshold);

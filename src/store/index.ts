@@ -468,3 +468,5 @@ export const useListingDrafts = () => {
 		setSelectedListingDraft,
 	};
 };
+
+export const appStore = useAppStore;

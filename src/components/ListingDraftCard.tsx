@@ -3,7 +3,9 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ListingDraft } from "@/types/ListingDraft";
 import { motion, usePresence } from "framer-motion";
+import { X } from "lucide-react";
 import { ListingDraftEditor } from "./ListingDraftEditor";
+import { Pill, PillIndicator } from "./ui/kibo-ui/pill";
 
 interface ListingDraftCardProps {
 	draft: ListingDraft;
@@ -13,7 +15,7 @@ interface ListingDraftCardProps {
 	isCollapsed: boolean;
 }
 
-const CARD_HEIGHT = 240; // Fixed height for collapsed cards
+const CARD_HEIGHT = 180; // Fixed height for collapsed cards
 
 export function ListingDraftCard({
 	draft,
@@ -28,7 +30,7 @@ export function ListingDraftCard({
 	// Calculate target height based on state
 	const getTargetHeight = () => {
 		if (isExpanded) {
-			return "100%"; // Take full sidebar height when expanded
+			return "calc(100vh - 6rem)"; // Take full sidebar height when expanded
 		}
 		if (isCollapsed) {
 			return 0; // Hide completely when other cards are expanded
@@ -45,91 +47,89 @@ export function ListingDraftCard({
 				scale: isCollapsed ? 0.95 : 1,
 			}}
 			exit={{
-				height: 0,
 				opacity: 0,
 				scale: 0.9,
 			}}
 			transition={{
 				height: {
-					duration: 0.4,
+					duration: 0.15,
 					ease: [0.4, 0.0, 0.2, 1],
 				},
 				opacity: {
-					duration: isCollapsed ? 0.2 : 0.3,
+					duration: 0.1,
 					ease: "easeInOut",
-					delay: isCollapsed ? 0 : 0.1,
+					delay: 0,
 				},
 				scale: {
-					duration: 0.3,
+					duration: 0.15,
 					ease: "easeOut",
 				},
 			}}
 			className={cn(
 				isCollapsed && "pointer-events-none",
 				"relative",
-				"overflow-hidden",
+				isExpanded ? "" : "overflow-hidden",
 				isExpanded ? "z-10" : "z-1",
 			)}
 		>
-			<div className="h-full relative">
+			<div className="relative h-full">
 				{/* Card content - conditionally rendered to avoid opacity conflicts with layoutId */}
 				<motion.div
-					className="absolute inset-0 "
+					className="absolute inset-0"
 					initial={false}
 					animate={{
-						opacity: isExpanded ? 0 : 1,
+						// Remove opacity animation
+						visibility: isExpanded ? "hidden" : "visible",
 					}}
 					transition={{
-						duration: 0.2,
-						delay: isExpanded ? 0 : 0.1, // Shorter delay to overlap with editor fadeout
+						duration: 0, // Instant visibility change
 					}}
 					style={{ pointerEvents: isExpanded ? "none" : "auto" }}
 				>
-					<Card className="cursor-pointer hover:shadow-md transition-shadow h-full">
+					<Card className="cursor-pointer hover:shadow-md transition-shadow h-full relative py-2">
+						{/* Delete button - positioned at top right */}
+						<Button
+							variant="ghost"
+							size="sm"
+							className="absolute top-2 right-2 z-10 h-6 w-6 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+							onClick={(e) => {
+								e.stopPropagation();
+								onDelete(draft.id);
+							}}
+						>
+							<X className="h-4 w-4" />
+						</Button>
+
 						<div onClick={() => onSelect(draft)} className="h-full flex">
 							{/* Left section: Image and Status */}
-							<div className="flex flex-col items-center justify-start p-4 w-24 flex-shrink-0">
+							<div className="flex flex-col items-center justify-between p-4 w-32 flex-shrink-0">
 								<motion.img
 									src={segment.sticker?.toDataURL()}
 									alt="Draft item"
-									className="h-16 w-16 object-contain rounded-md mb-2"
+									className="w-24 h-24  object-contain rounded-md mb-2"
 									layoutId={isPresent ? `draft-image-${segment.id}` : undefined}
 								/>
-								<span
-									className={`px-2 py-1 text-xs rounded-full text-center ${
-										status === "published"
-											? "bg-green-100 text-green-800"
-											: "bg-yellow-100 text-yellow-800"
-									}`}
-								>
-									{status === "published" ? "Published" : "Draft"}
-								</span>
+								{status === "published" ? (
+									<Pill variant={"outline"}>
+										<PillIndicator pulse variant="success" />
+										Published
+									</Pill>
+								) : (
+									<Pill variant={"outline"}>
+										<PillIndicator pulse variant="warning" />
+										Draft
+									</Pill>
+								)}
 							</div>
 
-							{/* Right section: Title, Description, and Delete Button */}
-							<div className="flex-1 flex flex-col p-4 pl-2">
-								<div className="flex-1">
-									<CardTitle className="text-sm mb-2">
-										{listingDetails?.title || "Untitled"}
-									</CardTitle>
-									<CardDescription className="line-clamp-3 text-sm">
-										{segment.description || "No description"}
-									</CardDescription>
-								</div>
-
-								<div className="mt-4">
-									<Button
-										variant="outline"
-										size="sm"
-										className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
-										onClick={(e) => {
-											e.stopPropagation();
-											onDelete(draft.id);
-										}}
-									>
-										Delete
-									</Button>
-								</div>
+							{/* Right section: Title and Description */}
+							<div className="flex-1 flex flex-col p-4 pl-2 pr-8">
+								<CardTitle className="text-sm mb-2">
+									{listingDetails?.title || "Untitled"}
+								</CardTitle>
+								<CardDescription className="line-clamp-3 text-sm">
+									{segment.description || "No description"}
+								</CardDescription>
 							</div>
 						</div>
 					</Card>
@@ -143,8 +143,8 @@ export function ListingDraftCard({
 						opacity: isExpanded ? 1 : 0,
 					}}
 					transition={{
-						duration: 0.2,
-						delay: isExpanded ? 0.1 : 0.1, // Wait longer for height animation to mostly complete
+						duration: 0.1,
+						delay: isExpanded ? 0.05 : 0, // Wait longer for height animation to mostly complete
 					}}
 					style={{ pointerEvents: isExpanded ? "auto" : "none" }}
 				>
